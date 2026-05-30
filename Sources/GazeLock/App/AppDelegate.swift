@@ -488,10 +488,25 @@ final class SystemExtensionDelegate: NSObject, OSSystemExtensionRequestDelegate,
 
     func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) {
         let ns = error as NSError
-        // Most common error: code 4 = "unsigned extension, developer mode required"
-        let hint = ns.code == 4
-            ? " — unsigned build; run: sudo systemextensionsctl developer on"
-            : ""
+        // Map OSSystemExtensionErrorCode → actionable hint. Values come from
+        // <SystemExtensions/OSSystemExtensionError.h>.
+        let hint: String
+        switch ns.code {
+        case 2:
+            hint = " — missing entitlement; rebuild with DEVELOPMENT_TEAM set"
+        case 3:
+            hint = " — app must live in /Applications; run `make run` from repo root"
+        case 4:
+            hint = " — bundle cache may be stale; run `make run` to refresh Launch Services"
+        case 8:
+            hint = " — invalid signature; rebuild with a real DEVELOPMENT_TEAM"
+        case 10:
+            hint = " — blocked by system policy; try `sudo systemextensionsctl reset`"
+        case 11, 12:
+            hint = " — request was superseded; retrying may succeed"
+        default:
+            hint = ""
+        }
         onResult(false, "\(ns.localizedDescription)\(hint)")
     }
 }

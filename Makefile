@@ -76,12 +76,19 @@ clean:
 	@rm -rf $(PROJECT_NAME).xcodeproj
 	$(XCODEBUILD) $(XCODEBUILD_FLAGS) clean 2>/dev/null || true
 
+LSREGISTER = /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
+
 run: build-dev
 	@echo "==> Copying to /Applications/$(PROJECT_NAME).app"
 	@echo "    (macOS requires system-extension-hosting apps to live in /Applications)"
 	@osascript -e 'quit app "$(PROJECT_NAME)"' 2>/dev/null ; killall $(PROJECT_NAME) 2>/dev/null ; true
 	@rm -rf /Applications/$(PROJECT_NAME).app
 	@cp -R "$(DERIVED_DATA)/Build/Products/$(CONFIG_DEBUG)/$(PROJECT_NAME).app" /Applications/
+	@echo "==> Fixing Launch Services registration"
+	@echo "    (otherwise OSSystemExtensionManager resolves the bundle from DerivedData"
+	@echo "     and fails with 'Extension not found in App bundle')"
+	@$(LSREGISTER) -u "$(DERIVED_DATA)/Build/Products/$(CONFIG_DEBUG)/$(PROJECT_NAME).app" 2>/dev/null || true
+	@$(LSREGISTER) -f /Applications/$(PROJECT_NAME).app
 	@echo "==> Launching from /Applications"
 	@open /Applications/$(PROJECT_NAME).app
 

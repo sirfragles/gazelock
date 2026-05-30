@@ -138,6 +138,33 @@ public final class FramePipeline {
             flow: flow,
             roiOrigin: (roiX, roiY)
         )
+
+        // Refiner pass: smooth TPS seams + restore natural skin/iris texture.
+        // The refiner takes (warped ++ original) 6-channel and emits a clean
+        // 3-channel patch. If the model isn't bundled or inference fails, we
+        // keep the raw warp output (caller already sees it in `destination`).
+        guard let refiner else { return }
+        do {
+            let warpedArr = try RefinerIOBridge.extractROI(
+                from: destination,
+                roiOrigin: (roiX, roiY)
+            )
+            let originalArr = try RefinerIOBridge.extractROI(
+                from: source,
+                roiOrigin: (roiX, roiY)
+            )
+            if let refined = try refiner.refine(warpedEye: warpedArr, originalEye: originalArr) {
+                let bgra = RefinerIOBridge.multiArrayToBGRA(refined)
+                Compositor.compositeROI(
+                    full: destination,
+                    eyePatch: bgra,
+                    roiOrigin: (roiX, roiY),
+                    roiSize: (roiW, roiH)
+                )
+            }
+        } catch {
+            // Refiner errors are non-fatal — raw warp is still in destination.
+        }
     }
 
     private func copyOf(_ pb: CVPixelBuffer) throws -> CVPixelBuffer {
